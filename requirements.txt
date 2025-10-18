@@ -6,3 +6,4 @@ python-dotenv
 qdrant-client
 uvicorn
 llama-index-embeddings-ollama
+python-doctr[torch]
