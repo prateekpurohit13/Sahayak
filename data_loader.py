@@ -9,7 +9,7 @@ EMBED_DIM = 1024
 EMBED_MODEL = "mxbai-embed-large"
 
 ollama_embedding = OllamaEmbedding(model_name=EMBED_MODEL)
-splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
+splitter = SentenceSplitter(chunk_size=512, chunk_overlap=100)
 
 def load_and_chunk_pdf(path: str):
     docs = PDFReader().load_data(file=path)
