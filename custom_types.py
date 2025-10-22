@@ -1,12 +1,6 @@
 import pydantic
 from typing import Optional, List
 
-
-class RAGChunkAndSrc(pydantic.BaseModel):
-    chunks: List[str]
-    source_id: Optional[str] = None
-
-
 class RAGUpsertResult(pydantic.BaseModel):
     ingested: int
 

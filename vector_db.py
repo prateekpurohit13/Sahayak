@@ -1,11 +1,17 @@
+import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
+# Read the Qdrant URL from an environment variable for deployment flexibility
+QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+
 class QdrantStorage:
-    def __init__(self, url="http://localhost:6333", collection="docs", dim=1024):
+    # --- CHANGE: Updated the default dimension from 1024 to 1536 ---
+    def __init__(self, url=QDRANT_URL, collection="docs", dim=1536):
         self.client = QdrantClient(url=url, timeout=30)
         self.collection = collection
+        # This will now create a collection with the correct vector size
         if not self.client.collection_exists(self.collection):
             self.client.create_collection(
                 collection_name=self.collection,

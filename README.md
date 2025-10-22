@@ -56,7 +56,7 @@ npx inngest-cli@latest dev -u http://127.0.0.1:8000/api/inngest
 Now that everything is running, you can use the Inngest Dev Server UI to interact with your functions.
 
 1.  Open your browser and navigate to the Inngest Dev Server URL (usually `http://localhost:8288`).
-2.  Click on the **Functions** tab in the sidebar. You will see `RAG: Ingest PDF` and `RAG: Query PDF`.
+2.  Click on the **Functions** tab in the sidebar. You will see `RAG: Ingest Document` and `RAG: Query PDF`.
 
 #### To Ingest a PDF:
 
@@ -64,7 +64,7 @@ Now that everything is running, you can use the Inngest Dev Server UI to interac
 2.  In the **Data** field, provide the path to the PDF you want to ingest. Make sure the PDF is in the `data` directory.
 
     ```json
-    {
+    {w
       "pdf_path": "./data/gecu104.pdf",
       "language": "en" //en for english and hi for hindi
     }
