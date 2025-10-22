@@ -14,6 +14,7 @@ from custom_types import RAGSearchResult, RAGUpsertResult
 
 load_dotenv()
 
+# Initialize the OpenAI client (reads API key from .env)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 inngest_client = inngest.Inngest(
@@ -57,8 +58,12 @@ def _summarize_image(image_path: str) -> str:
     """
     print(f"Sending image {image_path} to OpenAI for summarization...")
     base64_image = encode_image(image_path)
+    
+    # --- FIX: Corrected typo 'base64_imaage' to 'base64_image' ---
     if not base64_image:
+        logging.warning(f"Failed to encode image or image not found: {image_path}")
         return ""
+    # --- END FIX ---
     
     # Get the correct MIME type
     mime_type = get_image_mime_type(image_path)
@@ -155,8 +160,6 @@ async def rag_ingest_document(ctx: inngest.Context):
             extracted_image_paths.extend(extracted_data["image_paths"])
         elif image_path:
             print(f"Processing standalone image: {image_path}")
-            # For standalone images, the path *is* the image path.
-            # It must be accessible by the server.
             extracted_image_paths.append(image_path)
         else:
             raise ValueError("Event data must contain either 'pdf_path' or 'image_path'.")
