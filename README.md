@@ -85,3 +85,8 @@ Now that everything is running, you can use the Inngest Dev Server UI to interac
     ```
 
 3.  Click **Invoke** to get an answer based on the ingested content.
+
+### 6. Interact from Telegram
+#### setup instruction
+1. Download ngrok, configure it and fetch the https://username.ngrok.io/
+2. Run this  curl -Method POST "https://api.telegram.org/bot<TELEGRAM_API_TOKEN>/setWebhook?url=https://username.ngrok.io/api/telegram/webhook"
