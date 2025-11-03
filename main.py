@@ -9,6 +9,8 @@ import requests
 import json
 import os
 import tempfile
+import openai
+import whisper
 from data_loader import (
     load_and_chunk_pdf, 
     embed_texts, 
@@ -40,6 +42,13 @@ inngest_client = inngest.Inngest(
     is_production=False,
     serializer=inngest.PydanticSerializer()
 )
+
+try:
+    whisper_model = whisper.load_model("base")
+    logging.info("Local Whisper model 'base' loaded successfully.")
+except Exception as e:
+    logging.error(f"Failed to load local Whisper model: {e}")
+    whisper_model = None
 
 def _detect_language(text: str) -> str:
     if not text:
@@ -207,6 +216,29 @@ def _call_llm(prompt_content: str) -> str:
     logging.info("Using Ollama (local)")
     return _call_ollama(prompt_content)
 
+def _transcribe_audio(file_path: str) -> str:
+    """
+    Transcribes an audio file using the LOCAL Whisper model.
+    """
+    if not whisper_model:
+        logging.error("Local Whisper model is not loaded. Cannot transcribe audio.")
+        raise Exception("Local Whisper model is not loaded. Cannot transcribe audio.")
+
+    try:
+        # The transcribe() function handles everything
+        result = whisper_model.transcribe(file_path)
+        
+        transcribed_text = result.get("text", "")
+        if transcribed_text:
+            return transcribed_text.strip()
+        
+        logging.warning("Local transcription returned no text.")
+        raise Exception("Transcription returned no text.")
+        
+    except Exception as e:
+        logging.error(f"Local transcription failed: {e}")
+        raise Exception(f"Error transcribing audio locally: {str(e)}")
+
 @inngest_client.create_function(
     fn_id="RAG: Ingest PDF",
     trigger=inngest.TriggerEvent(event="rag/ingest_pdf"),
@@ -350,6 +382,62 @@ Answer:
                 "Sorry, I encountered an error while processing your image. Please try again. 🙏"))
         return {"status": "error", "error": str(e)}
 
+@inngest_client.create_function(
+    fn_id="RAG: Handle Audio Query",
+    trigger=inngest.TriggerEvent(event="rag/handle_audio_query")
+)
+async def rag_handle_audio_query(ctx: inngest.Context):
+    user_id = ctx.event.data["user_id"]
+    file_id = ctx.event.data["file_id"]
+    
+    temp_path = ""
+    try:
+        # Step 1: Download the audio file
+        temp_path = await ctx.step.run("download-audio", 
+            lambda: _download_telegram_file(file_id))
+        
+        # Step 2: Transcribe the audio to text
+        question = await ctx.step.run("transcribe-audio", 
+            lambda: _transcribe_audio(temp_path))
+        
+        if not question.strip():
+            await ctx.step.run("send-no-text-reply", 
+                lambda: _send_telegram_message(user_id, "I couldn't understand any speech in the audio. Please try again."))
+            return {"status": "no_text_transcribed"}
+        
+        # Step 3: Detect language from the transcribed text
+        detected_lang = await ctx.step.run("detect-language",
+            lambda: _detect_language(question))
+
+        logging.info(f"Transcribed audio from {user_id}: '{question}' (lang: {detected_lang})")
+        
+        # Step 4: Chain to the existing RAG query function
+        # This sends a new event, as if the user had typed the text.
+        await ctx.step.send_event("send-rag-query", inngest.Event(
+            name="rag/query_ai",
+            data={
+                "question": question,
+                "user_id": user_id,
+                "language": detected_lang
+            }
+        ))
+        
+        return {"status": "success", "forwarded_to_rag": True}
+    
+    except Exception as e:
+        logging.error(f"Error in rag_handle_audio_query: {e}")
+        await ctx.step.run("send-error-reply", 
+            lambda: _send_telegram_message(user_id, 
+                "Sorry, I. encountered an error processing your voice message. Please try again."))
+        return {"status": "error", "error": str(e)}
+    
+    finally:
+        # Step 5: Clean up the temporary file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as cleanup_error:
+                logging.warning(f"Failed to remove temp audio file {temp_path}: {cleanup_error}")
 
 # @inngest_client.create_function(
 #     fn_id="RAG: Query with Audio",
@@ -476,15 +564,16 @@ async def handle_telegram_webhook(request: dict):
                 }
             ))
 
-        # Future scope: Voice message handling
-        # elif "voice" in message:
-        #     await inngest_client.send(inngest.Event(
-        #         name="rag/query_audio_ai", 
-        #         data={
-        #             "file_id": message["voice"]["file_id"], 
-        #             "user_id": chat_id
-        #         }
-        #     ))
+        elif "voice" in message:
+            logging.info(f"Received voice message from {chat_id}")
+            
+            await inngest_client.send(inngest.Event(
+                name="rag/handle_audio_query", 
+                data={
+                    "file_id": message["voice"]["file_id"], 
+                    "user_id": chat_id
+                }
+            ))
         
         else:
             # Unsupported message type
@@ -511,7 +600,8 @@ inngest.fast_api.serve(
         rag_ingest_pdf, 
         rag_ingest_image, 
         rag_query_ai, 
-        rag_query_image_ai
+        rag_query_image_ai,
+        rag_handle_audio_query
         # rag_query_audio_ai
     ]
 )
