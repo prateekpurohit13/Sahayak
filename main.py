@@ -392,11 +392,9 @@ async def rag_handle_audio_query(ctx: inngest.Context):
     
     temp_path = ""
     try:
-        # Step 1: Download the audio file
         temp_path = await ctx.step.run("download-audio", 
             lambda: _download_telegram_file(file_id))
         
-        # Step 2: Transcribe the audio to text
         question = await ctx.step.run("transcribe-audio", 
             lambda: _transcribe_audio(temp_path))
         
@@ -405,14 +403,11 @@ async def rag_handle_audio_query(ctx: inngest.Context):
                 lambda: _send_telegram_message(user_id, "I couldn't understand any speech in the audio. Please try again."))
             return {"status": "no_text_transcribed"}
         
-        # Step 3: Detect language from the transcribed text
         detected_lang = await ctx.step.run("detect-language",
             lambda: _detect_language(question))
 
         logging.info(f"Transcribed audio from {user_id}: '{question}' (lang: {detected_lang})")
         
-        # Step 4: Chain to the existing RAG query function
-        # This sends a new event, as if the user had typed the text.
         await ctx.step.send_event("send-rag-query", inngest.Event(
             name="rag/query_ai",
             data={
@@ -432,43 +427,11 @@ async def rag_handle_audio_query(ctx: inngest.Context):
         return {"status": "error", "error": str(e)}
     
     finally:
-        # Step 5: Clean up the temporary file
         if temp_path and os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except Exception as cleanup_error:
                 logging.warning(f"Failed to remove temp audio file {temp_path}: {cleanup_error}")
-
-# @inngest_client.create_function(
-#     fn_id="RAG: Query with Audio",
-#     trigger=inngest.TriggerEvent(event="rag/query_audio_ai")
-# )
-# async def rag_query_audio_ai(ctx: inngest.Context):
-#     user_id = ctx.event.data["user_id"]
-#     file_id = ctx.event.data["file_id"]
-#     language = ctx.event.data.get("language", "en")
-
-#     temp_path = await ctx.step.run("download-audio", lambda: _download_telegram_file(file_id))
-#     # question = await ctx.step.run("transcribe-audio", lambda: transcribe_audio(temp_path))
-
-#     os.remove(temp_path)
-
-#     # query_vec = embed_texts([question])[0]
-#     store = QdrantStorage()
-#     # found = store.search(query_vec, 5, language=language)
-
-#     # context_block = "\n\n".join(f"- {c}" for c in found["contexts"])
-#     prompt = f"""
-# System Prompt: You are "Sahayak," ... (rest of your prompt)
-# ---
-# Provided Context:\n{context_block}\n---
-# User Question:\n{question}\n---
-# Answer:
-# """
-#     answer = await ctx.step.run("llm-answer-audio", lambda: _call_ollama(prompt))
-#     await ctx.step.run("send-reply-audio", lambda: _send_telegram_message(user_id, answer))
-#     return {"status": "success", "answer_sent": True}
-
 
 # --- FASTAPI APP & WEBHOOK ROUTER ---
 
@@ -587,10 +550,6 @@ async def handle_telegram_webhook(request: dict):
             pass
         return {"status": "error", "message": str(e)}
 
-    # Future scope: Voice message handling
-    # elif "voice" in message:
-    #     await inngest_client.send(inngest.Event(name="rag/query_audio_ai", data={"file_id": message["voice"]["file_id"], "user_id": chat_id}))
-
     return {"status": "ok", "message": "Job dispatched."}
 
 inngest.fast_api.serve(
@@ -602,6 +561,5 @@ inngest.fast_api.serve(
         rag_query_ai, 
         rag_query_image_ai,
         rag_handle_audio_query
-        # rag_query_audio_ai
     ]
 )

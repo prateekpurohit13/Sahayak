@@ -8,6 +8,7 @@ This project implements a RAG (Retrieval-Augmented Generation) pipeline using Fa
 - [Docker](https://www.docker.com/products/docker-desktop/)
 - [Node.js and npm](https://nodejs.org/) (for the Inngest Dev Server)
 - `uv` (Python package manager) installed (`pip install uv`)
+- `ffmpeg` Required for audio processing (for the voice-to-text feature)
 
 ## Getting Started
 
@@ -90,3 +91,15 @@ Now that everything is running, you can use the Inngest Dev Server UI to interac
 #### setup instruction
 1. Download ngrok, configure it and fetch the https://username.ngrok.io/
 2. Run this  curl -Method POST "https://api.telegram.org/bot<TELEGRAM_API_TOKEN>/setWebhook?url=https://username.ngrok.io/api/telegram/webhook"
+
+### 7. How to Use the Bot
+Your setup is now complete. Open your Telegram bot and start a conversation.
+
+**Asking a Question (Text)**
+Simply type your question and send it. The bot will receive the text, generate an answer from the ingested documents, and reply.
+
+**Asking a Question (Voice)**
+1. Tap the microphone icon in your Telegram chat.
+2. Record your question as a voice note.
+3. Send the voice note.
+4. The backend will automatically transcribe the audio to text, use that text to query the RAG pipeline, and send back the answer.
